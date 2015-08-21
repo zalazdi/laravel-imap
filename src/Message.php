@@ -1,0 +1,264 @@
+<?php namespace Zalazdi\LaravelImap;
+
+use Carbon\Carbon;
+
+class Message
+{
+    private $client;
+
+    /* HEADER */
+    public $subject;
+    public $date;
+
+    public $from;
+    public $to;
+    public $cc;
+    public $bcc;
+
+    public $reply_to;
+    public $sender;
+
+    public $message_id;
+    public $message_no;
+
+    /* BODY */
+    public $bodies = [];
+    public $attachments = [];
+
+    /* Consts */
+    const TYPE_TEXT = 0;
+    const TYPE_MULTIPART = 1;
+    const TYPE_MESSAGE = 2;
+    const TYPE_APPLICATION = 3;
+    const TYPE_AUDIO = 4;
+    const TYPE_IMAGE = 5;
+    const TYPE_VIDEO = 6;
+    const TYPE_MODEL = 7;
+    const TYPE_OTHER = 8;
+
+    const ENC_7BIT = 0;
+    const ENC_8BIT = 1;
+    const ENC_BINARY = 2;
+    const ENC_BASE64 = 3;
+    const ENC_QUOTED_PRINTABLE = 4;
+    const ENC_OTHER = 5;
+
+
+    public function __construct($client, $msgno)
+    {
+        $this->client = $client;
+        $this->message_no = $msgno;
+
+        $this->parseHeader();
+        $this->parseBody();
+    }
+
+    public function hasTextBody()
+    {
+        return isset($this->bodies['html']);
+    }
+
+    public function getTextBody()
+    {
+        if (!isset($this->bodies['text'])) {
+            return false;
+        }
+
+        return $this->bodies['text']->content;
+    }
+
+    public function hasHTMLBody()
+    {
+        return isset($this->bodies['html']);
+    }
+
+    public function getHTMLBody($replaceImages = false)
+    {
+        if (!isset($this->bodies['html'])) {
+            return false;
+        }
+
+        $body = $this->bodies['html']->content;
+        if ($replaceImages) {
+            foreach($this->attachments as $attachment) {
+                if ($attachment->id) {
+                    $body = str_replace('cid:'.$attachment->id, $attachment->img_src, $body);
+                }
+            }
+        }
+
+        return $body;
+    }
+
+    private function parseHeader()
+    {
+        $header = imap_header($this->client->connection, $this->message_no);
+
+        if (property_exists($header, 'subject'))
+            $this->subject = imap_utf8($header->subject);
+        if (property_exists($header, 'date'))
+            $this->date = Carbon::parse($header->date);
+
+        if (property_exists($header, 'from'))
+            $this->from = $this->parseAddresses($header->from);
+        if (property_exists($header, 'to'))
+            $this->to = $this->parseAddresses($header->to);
+        if (property_exists($header, 'cc'))
+            $this->cc = $this->parseAddresses($header->cc);
+        if (property_exists($header, 'bcc'))
+            $this->bcc = $this->parseAddresses($header->bcc);
+
+        if (property_exists($header, 'reply_to'))
+            $this->reply_to = $this->parseAddresses($header->reply_to);
+        if (property_exists($header, 'sender'))
+            $this->sender = $this->parseAddresses($header->sender);
+
+        if (property_exists($header, 'message_id'))
+            $this->message_id = str_replace(['<', '>'], '', $header->message_id);
+        if (property_exists($header, 'Msgno'))
+            $this->message_no = trim($header->Msgno);
+    }
+
+    private function parseAddresses($list)
+    {
+        $addresses = [];
+
+        foreach($list as $item) {
+            $address = (object) $item;
+
+            if(!property_exists($address, 'mailbox'))   $address->mailbox = false;
+            if(!property_exists($address, 'host'))      $address->host = false;
+            if(!property_exists($address, 'personal'))  $address->personal = false;
+
+            $address->mail = ($address->mailbox && $address->host) ? $address->mailbox . '@' . $address->host : false;
+            $address->full = ($address->personal) ? $address->personal.' <'.$address->mail.'>' : $address->mail;
+
+            $addresses[] = $address;
+        }
+
+        return $addresses;
+    }
+
+    private function parseBody()
+    {
+        $structure = imap_fetchstructure($this->client->connection, $this->message_no, FT_UID);
+
+        $this->fetchStructure($structure);
+    }
+
+    private function fetchStructure($structure, $partNumber = false)
+    {
+        if ($structure->type == self::TYPE_TEXT) {
+            if ($structure->subtype == "PLAIN") {
+                if (!$partNumber) {
+                    $partNumber = 1;
+                }
+
+                $content = imap_fetchbody($this->client->connection, $this->message_no, $partNumber);
+
+                $body = new \stdClass;
+                $body->type = "text";
+                $body->content = $this->decodeString($content, $structure->encoding);
+
+                $this->bodies['text'] = $body;
+
+            }
+            else if ($structure->subtype == "HTML") {
+                if (!$partNumber) {
+                    $partNumber = 1;
+                }
+
+                $content = imap_fetchbody($this->client->connection, $this->message_no, $partNumber);
+
+                $body = new \stdClass;
+                $body->type = "html";
+                $body->content = $this->decodeString($content, $structure->encoding);
+
+                $this->bodies['html'] = $body;
+            }
+        }
+
+        elseif ($structure->type == self::TYPE_MULTIPART) {
+            foreach ($structure->parts as $index => $subStruct) {
+                $prefix = "";
+                if ($partNumber) {
+                    $prefix = $partNumber . ".";
+                }
+
+                $this->fetchStructure($subStruct, $prefix . ($index + 1));
+            }
+        }
+
+        else {
+            switch($structure->type) {
+                case self::TYPE_APPLICATION:
+                    $type = 'appliaction';
+                    break;
+                case self::TYPE_AUDIO:
+                    $type = 'audio';
+                    break;
+                case self::TYPE_IMAGE:
+                    $type = 'image';
+                    break;
+                case self::TYPE_VIDEO:
+                    $type = 'video';
+                    break;
+                case self::TYPE_MODEL:
+                    $type = 'model';
+                    break;
+                case self::TYPE_OTHER:
+                    $type = 'other';
+                    break;
+                default:
+                    $type = 'other';
+                    break;
+            }
+
+            $content = imap_fetchbody($this->client->connection, $this->message_no, $partNumber);
+
+            $attachment = new \stdClass;
+            $attachment->type = $type;
+            $attachment->content_type = $type.'/'.strtolower($structure->subtype);
+            $attachment->content = $this->decodeString($content, $structure->encoding);
+
+            $attachment->id = false;
+            if (property_exists($structure, 'id')) {
+                $attachment->id = str_replace(['<', '>'], '', $structure->id);
+            }
+
+            $attachment->name = false;
+            foreach ($structure->parameters as $parameter) {
+                if ($parameter->attribute == "name") {
+                    $attachment->name = $parameter->value;
+                }
+            }
+
+            if ($attachment->type == 'image') {
+                $attachment->img_src = 'data:'.$attachment->content_type.';base64,'.base64_encode($attachment->content);
+            }
+
+            $this->attachments[$attachment->id] = $attachment;
+        }
+    }
+
+    private function decodeString($string, $encoding)
+    {
+        switch ($encoding) {
+            case self::ENC_7BIT:
+                return $string;
+            case self::ENC_8BIT:
+                return quoted_printable_decode(imap_8bit($string));
+            case self::ENC_BINARY:
+                return imap_binary($string);
+            case self::ENC_BASE64:
+                return imap_base64($string);
+            case self::ENC_QUOTED_PRINTABLE:
+                return quoted_printable_decode($string);
+            case self::ENC_OTHER:
+                return $string;
+            default:
+                return $string;
+        }
+    }
+
+}
