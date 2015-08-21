@@ -1,5 +1,5 @@
 {
-    "name": "Zalazdi/larav",
+    "name": "zalazdi/laravel-imap",
     "description": "Laravel 5 IMAP client.",
     "keywords": [
         "laravel",
