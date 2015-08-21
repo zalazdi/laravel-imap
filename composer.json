@@ -23,17 +23,11 @@
             "Zalazdi\\LaravelImap\\": "src"
         }
     },
-    "autoload-dev": {
-        "psr-4": {
-            "Zalazdi\\LaravelImap\\Test\\": "tests"
-        }
-    },
-    "scripts": {
-        "test": "phpunit"
-    },
     "extra": {
         "branch-alias": {
             "dev-master": "1.0-dev"
         }
     }
+    "minimum-stability": "dev",
+    "prefer-stable": true
 }
