@@ -231,7 +231,7 @@ class Message
             $attachment->content_type = $type.'/'.strtolower($structure->subtype);
             $attachment->content = $this->decodeString($content, $structure->encoding);
 
-            $attachment->id = null;
+            $attachment->id = false;
             if (property_exists($structure, 'id')) {
                 $attachment->id = str_replace(['<', '>'], '', $structure->id);
             }
@@ -259,7 +259,11 @@ class Message
                 $attachment->img_src = 'data:'.$attachment->content_type.';base64,'.base64_encode($attachment->content);
             }
 
-            $this->attachments[$attachment->id] = $attachment;
+            if ($attachment->id) {
+                $this->attachments[$attachment->id] = $attachment;
+            } else {
+                $this->attachments[] = $attachment;
+            }
         }
     }
 
