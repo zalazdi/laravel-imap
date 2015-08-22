@@ -55,7 +55,7 @@ class Message
 
     public function hasTextBody()
     {
-        return isset($this->bodies['html']);
+        return isset($this->bodies['text']);
     }
 
     public function getTextBody()
@@ -156,11 +156,15 @@ class Message
                     $partNumber = 1;
                 }
 
+                $encoding = $this->getEncoding($structure);
+
                 $content = imap_fetchbody($this->client->connection, $this->message_no, $partNumber);
+                $content = $this->decodeString($content, $structure->encoding);
+                $content = $this->convertEncoding($content, $encoding);
 
                 $body = new \stdClass;
                 $body->type = "text";
-                $body->content = $this->decodeString($content, $structure->encoding);
+                $body->content = $content;
 
                 $this->bodies['text'] = $body;
 
@@ -227,15 +231,27 @@ class Message
             $attachment->content_type = $type.'/'.strtolower($structure->subtype);
             $attachment->content = $this->decodeString($content, $structure->encoding);
 
-            $attachment->id = false;
+            $attachment->id = null;
             if (property_exists($structure, 'id')) {
                 $attachment->id = str_replace(['<', '>'], '', $structure->id);
             }
 
             $attachment->name = false;
-            foreach ($structure->parameters as $parameter) {
-                if ($parameter->attribute == "name") {
-                    $attachment->name = $parameter->value;
+            if (property_exists($structure, 'dparameters')) {
+                foreach ($structure->dparameters as $parameter) {
+                    if ($parameter->attribute == "filename") {
+                        $attachment->name = $parameter->value;
+                        break;
+                    }
+                }
+            }
+
+            if (!$attachment->name && property_exists($structure, 'parameters')) {
+                foreach ($structure->parameters as $parameter) {
+                    if ($parameter->attribute == "name") {
+                        $attachment->name = $parameter->value;
+                        break;
+                    }
                 }
             }
 
