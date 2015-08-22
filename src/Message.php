@@ -130,6 +130,8 @@ class Message
             if(!property_exists($address, 'host'))      $address->host = false;
             if(!property_exists($address, 'personal'))  $address->personal = false;
 
+            $address->personal = imap_utf8($address->personal);
+
             $address->mail = ($address->mailbox && $address->host) ? $address->mailbox . '@' . $address->host : false;
             $address->full = ($address->personal) ? $address->personal.' <'.$address->mail.'>' : $address->mail;
 
@@ -168,11 +170,15 @@ class Message
                     $partNumber = 1;
                 }
 
+                $encoding = $this->getEncoding($structure);
+
                 $content = imap_fetchbody($this->client->connection, $this->message_no, $partNumber);
+                $content = $this->decodeString($content, $structure->encoding);
+                $content = $this->convertEncoding($content, $encoding);
 
                 $body = new \stdClass;
                 $body->type = "html";
-                $body->content = $this->decodeString($content, $structure->encoding);
+                $body->content = $content;
 
                 $this->bodies['html'] = $body;
             }
@@ -261,4 +267,19 @@ class Message
         }
     }
 
+    private function convertEncoding($str, $from = "ISO-8859-2", $to = "UTF-8")
+    {
+        return mb_convert_encoding($str, $to, $from);
+    }
+
+    private function getEncoding($structure)
+    {
+        if (property_exists($structure, 'parameters')) {
+            foreach($structure->parameters as $parameter) {
+                if ($parameter->attribute == "charset") {
+                    return strtoupper($parameter->value);
+                }
+            }
+        }
+    }
 }
