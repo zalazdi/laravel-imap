@@ -10,13 +10,12 @@ class Message
     public $subject;
     public $date;
 
-    public $from;
-    public $to;
-    public $cc;
-    public $bcc;
-
-    public $reply_to;
-    public $sender;
+    public $from = [];
+    public $to = [];
+    public $cc = [];
+    public $bcc = [];
+    public $reply_to = [];
+    public $sender = [];
 
     public $message_id;
     public $message_no;
