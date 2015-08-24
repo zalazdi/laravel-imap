@@ -201,7 +201,7 @@ class Message
         else {
             switch($structure->type) {
                 case self::TYPE_APPLICATION:
-                    $type = 'appliaction';
+                    $type = 'application';
                     break;
                 case self::TYPE_AUDIO:
                     $type = 'audio';
