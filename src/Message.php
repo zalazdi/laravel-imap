@@ -91,7 +91,10 @@ class Message
 
     private function parseHeader()
     {
-        $header = imap_header($this->client->connection, $this->message_no);
+        $header = imap_fetchheader($this->client->connection, $this->message_no, FT_UID);
+        if ($header) {
+            $header = imap_rfc822_parse_headers($header);
+        }
 
         if (property_exists($header, 'subject'))
             $this->subject = imap_utf8($header->subject);
@@ -175,7 +178,7 @@ class Message
 
                 $encoding = $this->getEncoding($structure);
 
-                $content = imap_fetchbody($this->client->connection, $this->message_no, $partNumber);
+                $content = imap_fetchbody($this->client->connection, $this->message_no, $partNumber, SE_UID);
                 $content = $this->decodeString($content, $structure->encoding);
                 $content = $this->convertEncoding($content, $encoding);
 
