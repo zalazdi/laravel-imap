@@ -22,7 +22,7 @@ If you discover any security related issues, please email zalazdi@gmail.com inst
 
 ## Credits
 
-- [Zalazdi][http://github.com/zalazdi]
+- [Zalazdi](http://github.com/zalazdi)
 
 ## License
 
