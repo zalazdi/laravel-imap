@@ -226,7 +226,7 @@ class Message
                     break;
             }
 
-            $content = imap_fetchbody($this->client->connection, $this->message_no, $partNumber, FT_UID);
+            $content = imap_fetchbody($this->client->connection, $this->message_no, ($partNumber) ? $partNumber : 1, FT_UID);
 
             $attachment = new \stdClass;
             $attachment->type = $type;
