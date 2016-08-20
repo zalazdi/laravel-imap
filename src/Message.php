@@ -21,6 +21,7 @@ class Message
     public $sender = [];
 
     public $message_id;
+    public $message_no;
 
     /* BODY */
     public $bodies = [];
@@ -168,7 +169,7 @@ class Message
         $this->fetchStructure($structure);
     }
 
-    private function fetchStructure($structure, $partNumber = false)
+    private function fetchStructure($structure, $partNumber = null)
     {
         if ($structure->type == self::TYPE_TEXT) {
             if ($structure->subtype == "PLAIN") {

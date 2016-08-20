@@ -67,9 +67,9 @@ class Client
     /**
      * Active folder.
      *
-     * @var string
+     * @var Folder
      */
-    protected $activeFolder = '';
+    protected $activeFolder = false;
 
     /**
      * Client constructor.
@@ -241,7 +241,7 @@ class Client
             $messages = [];
             $availableMessages = imap_search($this->connection, $criteria, SE_UID);
 
-            if ($availableMessages) {
+            if ($availableMessages !== false) {
                 foreach ($availableMessages as $msgno) {
                     $message = new Message($msgno, $this);
 
