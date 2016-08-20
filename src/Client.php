@@ -121,7 +121,7 @@ class Client
      */
     public function checkConnection()
     {
-        if (! $this->isConnected()) {
+        if (!$this->isConnected()) {
             $this->connect();
         }
     }
@@ -196,7 +196,7 @@ class Client
             $folder = new Folder($this, $item);
 
             if ($hierarchical && $folder->hasChildren()) {
-                $pattern = $folder->fullName . $folder->delimiter . '%';
+                $pattern = $folder->fullName.$folder->delimiter.'%';
 
                 $children = $this->getFolders(true, $pattern);
                 $folder->setChildren($children);
@@ -275,7 +275,7 @@ class Client
     protected function getAddress()
     {
         $address = "{".$this->host.":".$this->port."/imap";
-        if (! $this->validate_cert) {
+        if (!$this->validate_cert) {
             $address .= '/novalidate-cert';
         }
         if ($this->encryption == 'ssl') {
