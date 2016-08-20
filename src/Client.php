@@ -7,44 +7,146 @@ use Zalazdi\LaravelImap\Exceptions\GetMessagesFailedException;
 
 class Client
 {
-    public $connection = false;
-    public $resource;
+    /**
+     * @var bool|resource
+     */
+    protected $connection = false;
 
+    /**
+     * Server hostname.
+     *
+     * @var string
+     */
     public $host;
+
+    /**
+     * Server port.
+     *
+     * @var int
+     */
     public $port;
+
+    /**
+     * Server encryption.
+     * Supported: none, ssl or tls.
+     *
+     * @var string
+     */
     public $encryption;
+
+    /**
+     * If server has to validate cert.
+     *
+     * @var mixed
+     */
     public $validate_cert;
-    public $read_only;
+
+    /**
+     * Account username/
+     *
+     * @var mixed
+     */
     public $username;
+
+    /**
+     * Account password.
+     *
+     * @var string
+     */
     public $password;
 
-    protected $mailboxes = [];
-    protected $currentMailbox = '';
+    /**
+     * Read only parameter.
+     *
+     * @var bool
+     */
+    protected $read_only = false;
 
-    public function __construct($mailbox = '')
+    /**
+     * Active mailbox.
+     *
+     * @var string
+     */
+    protected $activeMailbox = '';
+
+    /**
+     * Client constructor.
+     *
+     * @param array $config
+     */
+    public function __construct($config = [])
     {
-        $this->host = Config::get('imap.host');
-        $this->port = Config::get('imap.port');
-        $this->encryption = Config::get('imap.encryption');
-        $this->validate_cert = Config::get('imap.validate_cert');
-        $this->read_only = Config::get('imap.read_only');
-        $this->username = Config::get('imap.username');
-        $this->password = Config::get('imap.password');
+        $this->host = $config['host'];
+        $this->port = $config['port'];
+        $this->encryption = $config['encryption'];
+        $this->validate_cert = $config['validate_cert'];
+        $this->username = $config['username'];
+        $this->password = $config['password'];
     }
 
-    public function connect($mailboxName = '', $attempts = 3)
+    /**
+     * Set read only property and reconnect if it's necessary.
+     *
+     * @param bool $readOnly
+     */
+    public function setReadOnly($readOnly = true)
     {
-        $this->resource = $this->getAddress($mailboxName);
+        $this->read_only = $readOnly;
+    }
 
-        if ($this->connection != false) {
+    /**
+     * Determine if connection was established.
+     *
+     * @return bool
+     */
+    public function isConnected()
+    {
+        return ($this->connection) ? true : false;
+    }
+
+    /**
+     * Determine if connection is in read only mode.
+     *
+     * @return bool
+     */
+    public function isReadOnly()
+    {
+        return $this->read_only;
+    }
+
+    /**
+     * Determine if connection was established and connect if not.
+     */
+    public function checkConnection()
+    {
+        if (! $this->isConnected()) {
+            $this->connect();
+        }
+    }
+
+    /**
+     * Connect to server.
+     *
+     * @param int $attempts
+     *
+     * @return $this
+     * @throws ConnectionFailedException
+     */
+    public function connect($attempts = 3)
+    {
+        if ($this->isConnected()) {
             $this->disconnect();
         }
 
-        $options = ($this->read_only) ? OP_READONLY : 0;
-
         try {
-            $this->connection = imap_open($this->resource, $this->username, $this->password, $options, $attempts);
-        } catch(\ErrorException $e) {
+            $this->connection = imap_open(
+                $this->getAddress(),
+                $this->username,
+                $this->password,
+                $this->getOptions(),
+                $attempts
+            );
+        } catch (\ErrorException $e) {
             $message = $e->getMessage().'. '.implode("; ", imap_errors());
 
             throw new ConnectionFailedException($message);
@@ -53,78 +155,131 @@ class Client
         return $this;
     }
 
+    /**
+     * Disconnect from server.
+     *
+     * @return $this
+     */
     public function disconnect()
     {
-        if($this->connection != false) {
+        if ($this->isConnected()) {
             imap_close($this->connection);
         }
 
         return $this;
     }
 
-    public function getMailboxes()
+    /**
+     * Get mailboxes list.
+     * If hierarchical order is set to true, it will make a tree of mailboxes, otherwise it will return flat array.
+     *
+     * @param bool $hierarchical
+     * @param null $parent_mailbox
+     *
+     * @return array
+     */
+    public function getMailboxes($hierarchical = true, $parent_mailbox = null)
     {
-        if (empty($this->mailboxes)) {
-            $mailboxes = imap_getmailboxes($this->connection, $this->resource, '*');
+        $this->checkConnection();
+        $mailboxes = [];
 
-            foreach ($mailboxes as $item) {
-
-                preg_match('#\{(.*)\}(.*)#', $item->name, $name);
-                $mailbox = $name[0];
-                $name = $name[2];
-
-                $this->mailboxes[$name] = new Mailbox($this, $mailbox, $name);
-            }
+        if ($hierarchical) {
+            $pattern = $parent_mailbox.'%';
+        } else {
+            $pattern = $parent_mailbox.'*';
         }
 
-        return $this->mailboxes;
+        $items = imap_getmailboxes($this->connection, $this->getAddress(), $pattern);
+        foreach ($items as $item) {
+            $mailbox = new Mailbox($this, $item);
+
+            if ($hierarchical && $mailbox->hasChildren()) {
+                $pattern = $mailbox->fullName.$mailbox->delimiter.'%';
+
+                $children = $this->getMailboxes(true, $pattern);
+                $mailbox->setChildren($children);
+            }
+            $mailboxes[] = $mailbox;
+        }
+
+        return $mailboxes;
     }
 
+    /**
+     * Open mailbox.
+     *
+     * @param Mailbox $mailbox
+     */
     public function openMailbox(Mailbox $mailbox)
     {
-        $this->currentMailbox = $mailbox;
-        $options = ($this->read_only) ? OP_READONLY : 0;
+        $this->checkConnection();
 
-        imap_reopen($this->connection, $mailbox->getMailbox(), $options, 3);
+        if ($this->activeMailbox != $mailbox) {
+            $this->activeMailbox = $mailbox;
+
+            imap_reopen($this->connection, $mailbox->path, $this->getOptions(), 3);
+        }
     }
 
-    public function getMessages(Mailbox $mailbox,$criteria = 'ALL')
+    /**
+     * Get messages from mailbox.
+     *
+     * @param Mailbox $mailbox
+     * @param string $criteria
+     *
+     * @return array
+     * @throws GetMessagesFailedException
+     */
+    public function getMessages(Mailbox $mailbox, $criteria = 'ALL')
     {
-        try
-        {
+        $this->checkConnection();
+
+        try {
             $this->openMailbox($mailbox);
             $messages = [];
             $availableMessages = imap_search($this->connection, $criteria, SE_UID);
 
             if ($availableMessages) {
                 foreach ($availableMessages as $msgno) {
-                    $message = new Message($this, $msgno);
+                    $message = new Message($msgno, $this);
 
                     $messages[$message->message_id] = $message;
                 }
             }
             return $messages;
-        }
-        catch(\Exception $e)
-        {
+        } catch (\Exception $e) {
             $message = $e->getMessage();
 
             throw new GetMessagesFailedException($message);
         }
     }
 
+    /**
+     * Get option for imap_open and imap_reopen.
+     * It supports only isReadOnly feature.
+     *
+     * @return int
+     */
+    protected function getOptions()
+    {
+        return ($this->isReadOnly()) ? OP_READONLY : 0;
+    }
 
-    protected function getAddress($mailboxName = false)
+    /**
+     * Get full address of mailbox.
+     *
+     * @return string
+     */
+    protected function getAddress()
     {
         $address = "{".$this->host.":".$this->port."/imap";
-        if (!$this->validate_cert)
+        if (! $this->validate_cert) {
             $address .= '/novalidate-cert';
-        if ($this->encryption == 'ssl')
+        }
+        if ($this->encryption == 'ssl') {
             $address .= '/ssl';
+        }
         $address .= '}';
-
-        if ($mailboxName)
-            $address .= '/';
 
         return $address;
     }

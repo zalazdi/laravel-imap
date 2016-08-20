@@ -1,10 +1,13 @@
-<?php namespace Zalazdi\LaravelImap;
+<?php
+
+namespace Zalazdi\LaravelImap;
 
 use Carbon\Carbon;
 
 class Message
 {
     private $client;
+    public $uid;
 
     /* HEADER */
     public $subject;
@@ -18,7 +21,6 @@ class Message
     public $sender = [];
 
     public $message_id;
-    public $message_no;
 
     /* BODY */
     public $bodies = [];
@@ -43,10 +45,10 @@ class Message
     const ENC_OTHER = 5;
 
 
-    public function __construct($client, $msgno)
+    public function __construct($uid, $client)
     {
+        $this->uid = $uid;
         $this->client = $client;
-        $this->message_no = $msgno;
 
         $this->parseHeader();
         $this->parseBody();
@@ -79,7 +81,7 @@ class Message
 
         $body = $this->bodies['html']->content;
         if ($replaceImages) {
-            foreach($this->attachments as $attachment) {
+            foreach ($this->attachments as $attachment) {
                 if ($attachment->id) {
                     $body = str_replace('cid:'.$attachment->id, $attachment->img_src, $body);
                 }
@@ -91,46 +93,62 @@ class Message
 
     private function parseHeader()
     {
-        $header = imap_fetchheader($this->client->connection, $this->message_no, FT_UID);
+        $header = imap_fetchheader($this->client->connection, $this->uid, FT_UID);
         if ($header) {
             $header = imap_rfc822_parse_headers($header);
         }
 
-        if (property_exists($header, 'subject'))
+        if (property_exists($header, 'subject')) {
             $this->subject = imap_utf8($header->subject);
-        if (property_exists($header, 'date'))
+        }
+        if (property_exists($header, 'date')) {
             $this->date = Carbon::parse($header->date);
+        }
 
-        if (property_exists($header, 'from'))
+        if (property_exists($header, 'from')) {
             $this->from = $this->parseAddresses($header->from);
-        if (property_exists($header, 'to'))
+        }
+        if (property_exists($header, 'to')) {
             $this->to = $this->parseAddresses($header->to);
-        if (property_exists($header, 'cc'))
+        }
+        if (property_exists($header, 'cc')) {
             $this->cc = $this->parseAddresses($header->cc);
-        if (property_exists($header, 'bcc'))
+        }
+        if (property_exists($header, 'bcc')) {
             $this->bcc = $this->parseAddresses($header->bcc);
+        }
 
-        if (property_exists($header, 'reply_to'))
+        if (property_exists($header, 'reply_to')) {
             $this->reply_to = $this->parseAddresses($header->reply_to);
-        if (property_exists($header, 'sender'))
+        }
+        if (property_exists($header, 'sender')) {
             $this->sender = $this->parseAddresses($header->sender);
+        }
 
-        if (property_exists($header, 'message_id'))
+        if (property_exists($header, 'message_id')) {
             $this->message_id = str_replace(['<', '>'], '', $header->message_id);
-        if (property_exists($header, 'Msgno'))
+        }
+        if (property_exists($header, 'Msgno')) {
             $this->message_no = trim($header->Msgno);
+        }
     }
 
     private function parseAddresses($list)
     {
         $addresses = [];
 
-        foreach($list as $item) {
+        foreach ($list as $item) {
             $address = (object) $item;
 
-            if(!property_exists($address, 'mailbox'))   $address->mailbox = false;
-            if(!property_exists($address, 'host'))      $address->host = false;
-            if(!property_exists($address, 'personal'))  $address->personal = false;
+            if (!property_exists($address, 'mailbox')) {
+                $address->mailbox = false;
+            }
+            if (!property_exists($address, 'host')) {
+                $address->host = false;
+            }
+            if (!property_exists($address, 'personal')) {
+                $address->personal = false;
+            }
 
             $address->personal = imap_utf8($address->personal);
 
@@ -145,7 +163,7 @@ class Message
 
     private function parseBody()
     {
-        $structure = imap_fetchstructure($this->client->connection, $this->message_no, FT_UID);
+        $structure = imap_fetchstructure($this->client->connection, $this->uid, FT_UID);
 
         $this->fetchStructure($structure);
     }
@@ -160,7 +178,7 @@ class Message
 
                 $encoding = $this->getEncoding($structure);
 
-                $content = imap_fetchbody($this->client->connection, $this->message_no, $partNumber, FT_UID);
+                $content = imap_fetchbody($this->client->connection, $this->uid, $partNumber, FT_UID);
                 $content = $this->decodeString($content, $structure->encoding);
                 $content = $this->convertEncoding($content, $encoding);
 
@@ -170,15 +188,14 @@ class Message
 
                 $this->bodies['text'] = $body;
 
-            }
-            else if ($structure->subtype == "HTML") {
+            } elseif ($structure->subtype == "HTML") {
                 if (!$partNumber) {
                     $partNumber = 1;
                 }
 
                 $encoding = $this->getEncoding($structure);
 
-                $content = imap_fetchbody($this->client->connection, $this->message_no, $partNumber, FT_UID);
+                $content = imap_fetchbody($this->client->connection, $this->uid, $partNumber, FT_UID);
                 $content = $this->decodeString($content, $structure->encoding);
                 $content = $this->convertEncoding($content, $encoding);
 
@@ -188,9 +205,7 @@ class Message
 
                 $this->bodies['html'] = $body;
             }
-        }
-
-        elseif ($structure->type == self::TYPE_MULTIPART) {
+        } elseif ($structure->type == self::TYPE_MULTIPART) {
             foreach ($structure->parts as $index => $subStruct) {
                 $prefix = "";
                 if ($partNumber) {
@@ -199,10 +214,8 @@ class Message
 
                 $this->fetchStructure($subStruct, $prefix . ($index + 1));
             }
-        }
-
-        else {
-            switch($structure->type) {
+        } else {
+            switch ($structure->type) {
                 case self::TYPE_APPLICATION:
                     $type = 'application';
                     break;
@@ -226,7 +239,7 @@ class Message
                     break;
             }
 
-            $content = imap_fetchbody($this->client->connection, $this->message_no, ($partNumber) ? $partNumber : 1, FT_UID);
+            $content = imap_fetchbody($this->client->connection, $this->uid, ($partNumber) ? $partNumber : 1, FT_UID);
 
             $attachment = new \stdClass;
             $attachment->type = $type;
@@ -291,15 +304,16 @@ class Message
 
     private function convertEncoding($str, $from = "ISO-8859-2", $to = "UTF-8")
     {
-        if(!$from)
+        if (!$from) {
             return mb_convert_encoding($str, $to);
+        }
         return mb_convert_encoding($str, $to, $from);
     }
 
     private function getEncoding($structure)
     {
         if (property_exists($structure, 'parameters')) {
-            foreach($structure->parameters as $parameter) {
+            foreach ($structure->parameters as $parameter) {
                 if ($parameter->attribute == "charset") {
                     return strtoupper($parameter->value);
                 }
