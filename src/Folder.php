@@ -2,7 +2,7 @@
 
 namespace Zalazdi\LaravelImap;
 
-class Mailbox
+class Folder
 {
     /**
      * Client instance
@@ -12,57 +12,57 @@ class Mailbox
     protected $client;
 
     /**
-     * Mailbox full path
+     * Folder full path
      *
      * @var string
      */
     public $path;
 
     /**
-     * Mailbox name
+     * Folder name
      *
      * @var string
      */
     public $name;
 
     /**
-     * Mailbox fullname
+     * Folder fullname
      *
      * @var string
      */
     public $fullName;
 
     /**
-     * Children mailboxes
+     * Children folders
      *
      * @var array
      */
     public $children = [];
 
     /**
-     * Delimiter for mailbox
+     * Delimiter for folder
      *
      * @var string
      */
     public $delimiter;
 
     /**
-     * Indicates if mailbox can't containg any "children".
-     * CreateMailbox won't work on this mailbox.
+     * Indicates if folder can't containg any "children".
+     * CreateFolder won't work on this folder.
      *
      * @var boolean
      */
     public $no_inferiors;
 
     /**
-     * Indicates if mailbox is only container, not a mailbox - you can't open it.
+     * Indicates if folder is only container, not a mailbox - you can't open it.
      *
      * @var boolean
      */
     public $no_select;
 
     /**
-     * Indicates if mailbox is marked. This means that it may contain new messages since the last time it was checked.
+     * Indicates if folder is marked. This means that it may contain new messages since the last time it was checked.
      * Not provided by all IMAP servers.
      *
      * @var boolean
@@ -70,7 +70,7 @@ class Mailbox
     public $marked;
 
     /**
-     * Indicates if mailbox containg any "children".
+     * Indicates if folder containg any "children".
      * Not provided by all IMAP servers.
      *
      * @var boolean
@@ -78,7 +78,7 @@ class Mailbox
     public $has_children;
 
     /**
-     * Indicates if mailbox refers to other mailbox.
+     * Indicates if folder refers to other.
      * Not provided by all IMAP servers.
      *
      * @var boolean
@@ -86,25 +86,25 @@ class Mailbox
     public $referal;
 
     /**
-     * Mailbox constructor.
+     * Folder constructor.
      *
      * @param \Zalazdi\LaravelImap\Client $client
-     * @param $mailbox
+     * @param $folder
      */
-    public function __construct(Client $client, $mailbox)
+    public function __construct(Client $client, $folder)
     {
         $this->client = $client;
 
-        $this->delimiter = $mailbox->delimiter;
-        $this->path = $mailbox->name;
-        $this->fullName = $this->decodeName($mailbox->name);
+        $this->delimiter = $folder->delimiter;
+        $this->path = $folder->name;
+        $this->fullName = $this->decodeName($folder->name);
         $this->name = $this->getSimpleName($this->delimiter, $this->fullName);
 
-        $this->parseAttributes($mailbox->attributes);
+        $this->parseAttributes($folder->attributes);
     }
 
     /**
-     * Determine if mailbox has children.
+     * Determine if folder has children.
      *
      * @return bool
      */

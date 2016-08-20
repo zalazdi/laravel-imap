@@ -1,4 +1,6 @@
-<?php namespace Zalazdi\LaravelImap;
+<?php
+
+namespace Zalazdi\LaravelImap;
 
 use Illuminate\Support\Facades\Config;
 
@@ -63,11 +65,11 @@ class Client
     protected $read_only = false;
 
     /**
-     * Active mailbox.
+     * Active folder.
      *
      * @var string
      */
-    protected $activeMailbox = '';
+    protected $activeFolder = '';
 
     /**
      * Client constructor.
@@ -170,72 +172,72 @@ class Client
     }
 
     /**
-     * Get mailboxes list.
-     * If hierarchical order is set to true, it will make a tree of mailboxes, otherwise it will return flat array.
+     * Get folders list.
+     * If hierarchical order is set to true, it will make a tree of folders, otherwise it will return flat array.
      *
      * @param bool $hierarchical
-     * @param null $parent_mailbox
+     * @param null $parent_folder
      *
      * @return array
      */
-    public function getMailboxes($hierarchical = true, $parent_mailbox = null)
+    public function getFolders($hierarchical = true, $parent_folder = null)
     {
         $this->checkConnection();
-        $mailboxes = [];
+        $folders = [];
 
         if ($hierarchical) {
-            $pattern = $parent_mailbox.'%';
+            $pattern = $parent_folder.'%';
         } else {
-            $pattern = $parent_mailbox.'*';
+            $pattern = $parent_folder.'*';
         }
 
         $items = imap_getmailboxes($this->connection, $this->getAddress(), $pattern);
         foreach ($items as $item) {
-            $mailbox = new Mailbox($this, $item);
+            $folder = new Folder($this, $item);
 
-            if ($hierarchical && $mailbox->hasChildren()) {
-                $pattern = $mailbox->fullName.$mailbox->delimiter.'%';
+            if ($hierarchical && $folder->hasChildren()) {
+                $pattern = $folder->fullName . $folder->delimiter . '%';
 
-                $children = $this->getMailboxes(true, $pattern);
-                $mailbox->setChildren($children);
+                $children = $this->getFolders(true, $pattern);
+                $folder->setChildren($children);
             }
-            $mailboxes[] = $mailbox;
+            $folders[] = $folder;
         }
 
-        return $mailboxes;
+        return $folders;
     }
 
     /**
-     * Open mailbox.
+     * Open folder.
      *
-     * @param Mailbox $mailbox
+     * @param Folder $folder
      */
-    public function openMailbox(Mailbox $mailbox)
+    public function openFolder(Folder $folder)
     {
         $this->checkConnection();
 
-        if ($this->activeMailbox != $mailbox) {
-            $this->activeMailbox = $mailbox;
+        if ($this->activeFolder != $folder) {
+            $this->activeFolder = $folder;
 
-            imap_reopen($this->connection, $mailbox->path, $this->getOptions(), 3);
+            imap_reopen($this->connection, $folder->path, $this->getOptions(), 3);
         }
     }
 
     /**
-     * Get messages from mailbox.
+     * Get messages from folder.
      *
-     * @param Mailbox $mailbox
+     * @param Folder $folder
      * @param string $criteria
      *
      * @return array
      * @throws GetMessagesFailedException
      */
-    public function getMessages(Mailbox $mailbox, $criteria = 'ALL')
+    public function getMessages(Folder $folder, $criteria = 'ALL')
     {
         $this->checkConnection();
 
         try {
-            $this->openMailbox($mailbox);
+            $this->openFolder($folder);
             $messages = [];
             $availableMessages = imap_search($this->connection, $criteria, SE_UID);
 
