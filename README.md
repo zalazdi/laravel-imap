@@ -6,10 +6,37 @@
 
 ## Install
 
-Via Composer
+1. Via Composer
 
 ``` bash
-$ composer require zalazdi/laravel-imap
+composer require zalazdi/laravel-imap
+```
+
+2. Copy `vendor\zalazdi\laravel-imap\config\imap.php` to `config\imap.php`. Edit to change host, username, password.
+
+
+3. Add this line to `config\app.php` into providers section:
+```
+Zalazdi\LaravelImap\LaravelImapServiceProvider::class,
+```
+
+## Usage
+
+Example usage: 
+
+```php
+use Zalazdi\LaravelImap\Client;
+use Zalazdi\LaravelImap\Mailbox;
+
+// ...
+
+$client = new Client();
+$client->connect();
+
+$mailboxes = $client->getMailboxes();
+foreach($mailboxes as $mailbox) {
+    dump($mailbox->getMessages());
+}
 ```
 
 ## Change log
