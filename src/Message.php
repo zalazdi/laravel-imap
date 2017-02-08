@@ -321,4 +321,8 @@ class Message
             }
         }
     }
+    
+    public function setFlag($flag) {
+        imap_setflag_full($this->client->connection, $this->message_no, $flag, FT_UID);
+    }
 }
