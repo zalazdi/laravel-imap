@@ -17,7 +17,7 @@ composer require zalazdi/laravel-imap
 
 3. Add this line to `config\app.php` into providers section:
 ```
-Zalazdi\LaravelImap\LaravelImapServiceProvider::class,
+Zalazdi\LaravelImap\Providers\LaravelServiceProvider::class,
 ```
 
 ## Usage
