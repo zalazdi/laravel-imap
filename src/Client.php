@@ -12,7 +12,7 @@ class Client
     /**
      * @var bool|resource
      */
-    protected $connection = false;
+    public $connection = false;
 
     /**
      * Server hostname.
