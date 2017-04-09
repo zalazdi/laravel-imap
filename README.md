@@ -12,7 +12,7 @@
 composer require zalazdi/laravel-imap
 ```
 
-2. Copy `vendor\zalazdi\laravel-imap\config\imap.php` to `config\imap.php`. Edit to change host, username, password.
+2. Publish config file `php artisan vendor:publish --provider="Zalazdi\LaravelImap\Providers\LaravelServiceProvider"` then Define host, username, password, etc in your `config/imap.php`.
 
 
 3. Add this line to `config\app.php` into providers section:
