@@ -41,7 +41,7 @@ class Client
      *
      * @var mixed
      */
-    public $validate_cert;
+    public $validateCert;
 
     /**
      * Account username/
@@ -62,7 +62,7 @@ class Client
      *
      * @var bool
      */
-    protected $read_only = false;
+    protected $readOnly = false;
 
     /**
      * Active folder.
@@ -81,7 +81,7 @@ class Client
         $this->host = $config['host'];
         $this->port = $config['port'];
         $this->encryption = $config['encryption'];
-        $this->validate_cert = $config['validate_cert'];
+        $this->validateCert = $config['validate_cert'];
         $this->username = $config['username'];
         $this->password = $config['password'];
     }
@@ -93,7 +93,7 @@ class Client
      */
     public function setReadOnly($readOnly = true)
     {
-        $this->read_only = $readOnly;
+        $this->readOnly = $readOnly;
     }
 
     /**
@@ -113,7 +113,7 @@ class Client
      */
     public function isReadOnly()
     {
-        return $this->read_only;
+        return $this->readOnly;
     }
 
     /**
@@ -176,19 +176,19 @@ class Client
      * If hierarchical order is set to true, it will make a tree of folders, otherwise it will return flat array.
      *
      * @param bool $hierarchical
-     * @param null $parent_folder
+     * @param null $parentFolder
      *
      * @return array
      */
-    public function getFolders($hierarchical = true, $parent_folder = null)
+    public function getFolders($hierarchical = true, $parentFolder = null)
     {
         $this->checkConnection();
         $folders = [];
 
         if ($hierarchical) {
-            $pattern = $parent_folder.'%';
+            $pattern = $parentFolder.'%';
         } else {
-            $pattern = $parent_folder.'*';
+            $pattern = $parentFolder.'*';
         }
 
         $items = imap_getmailboxes($this->connection, $this->getAddress(), $pattern);
@@ -205,6 +205,27 @@ class Client
         }
 
         return $folders;
+    }
+
+    /**
+     * Get folder by full name.
+     *
+     * @param string $folderName
+     *
+     * @return Folder
+     */
+    public function getFolder($folderName)
+    {
+        $folders = $this->getFolders(false);
+
+        foreach($folders as $folder)
+        {
+            if ($folder->fullName = $folderName) {
+                return $folder;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -275,7 +296,7 @@ class Client
     protected function getAddress()
     {
         $address = "{".$this->host.":".$this->port."/imap";
-        if (!$this->validate_cert) {
+        if (!$this->validateCert) {
             $address .= '/novalidate-cert';
         }
         if ($this->encryption == 'ssl') {
