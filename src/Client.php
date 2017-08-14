@@ -7,12 +7,14 @@ use Illuminate\Support\Facades\Config;
 use Zalazdi\LaravelImap\Exceptions\ConnectionFailedException;
 use Zalazdi\LaravelImap\Exceptions\GetMessagesFailedException;
 
+use Illuminate\Support\Facades\Log;
+
 class Client
 {
     /**
      * @var bool|resource
      */
-    protected $connection = false;
+    public $connection = false;
 
     /**
      * Server hostname.
@@ -305,5 +307,30 @@ class Client
         $address .= '}';
 
         return $address;
+    }
+
+
+    /**
+    * Delete specific mail
+    *  
+    * @param $message id
+    * 
+    * @return booelan
+    */
+    public function deleteMessage($messagenumber)
+    {
+        $this->checkConnection();
+
+        try {
+            imap_delete($this->connection, $messagenumber, FT_UID);
+
+            imap_expunge($this->connection);
+        } catch(\Exception $e) {
+            $message = $e->getMessage();
+
+            Log::error($message);
+        }
+
+        return true;
     }
 }
