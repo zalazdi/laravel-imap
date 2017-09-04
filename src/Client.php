@@ -306,4 +306,16 @@ class Client
 
         return $address;
     }
+    
+    /**
+    * Get an IMAP stream on success or FALSE on error. 
+    *
+    * @return bool|resource
+    */
+    public function getConnection()
+    {
+        $this->checkConnection();
+        
+        return $this->connection;
+    }
 }
