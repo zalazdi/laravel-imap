@@ -6,6 +6,9 @@ use Carbon\Carbon;
 
 class Message
 {
+    /**
+     * @var Client
+     */
     private $client;
     public $uid;
 
@@ -84,7 +87,7 @@ class Message
         if ($replaceImages) {
             foreach ($this->attachments as $attachment) {
                 if ($attachment->id) {
-                    $body = str_replace('cid:'.$attachment->id, $attachment->img_src, $body);
+                    $body = str_replace('cid:' . $attachment->id, $attachment->img_src, $body);
                 }
             }
         }
@@ -94,7 +97,7 @@ class Message
 
     private function parseHeader()
     {
-        $header = imap_fetchheader($this->client->connection, $this->uid, FT_UID);
+        $header = imap_fetchheader($this->client->getConnection(), $this->uid, FT_UID);
         if ($header) {
             $header = imap_rfc822_parse_headers($header);
         }
@@ -139,7 +142,7 @@ class Message
         $addresses = [];
 
         foreach ($list as $item) {
-            $address = (object) $item;
+            $address = (object)$item;
 
             if (!property_exists($address, 'mailbox')) {
                 $address->mailbox = false;
@@ -154,7 +157,7 @@ class Message
             $address->personal = imap_utf8($address->personal);
 
             $address->mail = ($address->mailbox && $address->host) ? $address->mailbox . '@' . $address->host : false;
-            $address->full = ($address->personal) ? $address->personal.' <'.$address->mail.'>' : $address->mail;
+            $address->full = ($address->personal) ? $address->personal . ' <' . $address->mail . '>' : $address->mail;
 
             $addresses[] = $address;
         }
@@ -164,7 +167,7 @@ class Message
 
     private function parseBody()
     {
-        $structure = imap_fetchstructure($this->client->connection, $this->uid, FT_UID);
+        $structure = imap_fetchstructure($this->client->getConnection(), $this->uid, FT_UID);
 
         $this->fetchStructure($structure);
     }
@@ -179,7 +182,7 @@ class Message
 
                 $encoding = $this->getEncoding($structure);
 
-                $content = imap_fetchbody($this->client->connection, $this->uid, $partNumber, FT_UID);
+                $content = imap_fetchbody($this->client->getConnection(), $this->uid, $partNumber, FT_UID);
                 $content = $this->decodeString($content, $structure->encoding);
                 $content = $this->convertEncoding($content, $encoding);
 
@@ -196,7 +199,7 @@ class Message
 
                 $encoding = $this->getEncoding($structure);
 
-                $content = imap_fetchbody($this->client->connection, $this->uid, $partNumber, FT_UID);
+                $content = imap_fetchbody($this->client->getConnection(), $this->uid, $partNumber, FT_UID);
                 $content = $this->decodeString($content, $structure->encoding);
                 $content = $this->convertEncoding($content, $encoding);
 
@@ -240,11 +243,11 @@ class Message
                     break;
             }
 
-            $content = imap_fetchbody($this->client->connection, $this->uid, ($partNumber) ? $partNumber : 1, FT_UID);
+            $content = imap_fetchbody($this->client->getConnection(), $this->uid, ($partNumber) ? $partNumber : 1, FT_UID);
 
             $attachment = new \stdClass;
             $attachment->type = $type;
-            $attachment->content_type = $type.'/'.strtolower($structure->subtype);
+            $attachment->content_type = $type . '/' . strtolower($structure->subtype);
             $attachment->content = $this->decodeString($content, $structure->encoding);
 
             $attachment->id = false;
@@ -272,7 +275,7 @@ class Message
             }
 
             if ($attachment->type == 'image') {
-                $attachment->img_src = 'data:'.$attachment->content_type.';base64,'.base64_encode($attachment->content);
+                $attachment->img_src = 'data:' . $attachment->content_type . ';base64,' . base64_encode($attachment->content);
             }
 
             if ($attachment->id) {
@@ -321,8 +324,9 @@ class Message
             }
         }
     }
-    
-    public function setFlag($flag) {
-        imap_setflag_full($this->client->connection, $this->message_no, $flag, FT_UID);
+
+    public function setFlag($flag)
+    {
+        imap_setflag_full($this->client->getConnection(), $this->message_no, $flag, FT_UID);
     }
 }

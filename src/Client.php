@@ -2,8 +2,6 @@
 
 namespace Zalazdi\LaravelImap;
 
-use Illuminate\Support\Facades\Config;
-
 use Zalazdi\LaravelImap\Exceptions\ConnectionFailedException;
 use Zalazdi\LaravelImap\Exceptions\GetMessagesFailedException;
 
@@ -118,6 +116,8 @@ class Client
 
     /**
      * Determine if connection was established and connect if not.
+     *
+     * @throws ConnectionFailedException
      */
     public function checkConnection()
     {
@@ -149,7 +149,7 @@ class Client
                 $attempts
             );
         } catch (\ErrorException $e) {
-            $message = $e->getMessage().'. '.implode("; ", imap_errors());
+            $message = $e->getMessage() . '. ' . implode("; ", imap_errors());
 
             throw new ConnectionFailedException($message);
         }
@@ -179,6 +179,7 @@ class Client
      * @param null $parentFolder
      *
      * @return array
+     * @throws ConnectionFailedException
      */
     public function getFolders($hierarchical = true, $parentFolder = null)
     {
@@ -186,9 +187,9 @@ class Client
         $folders = [];
 
         if ($hierarchical) {
-            $pattern = $parentFolder.'%';
+            $pattern = $parentFolder . '%';
         } else {
-            $pattern = $parentFolder.'*';
+            $pattern = $parentFolder . '*';
         }
 
         $items = imap_getmailboxes($this->connection, $this->getAddress(), $pattern);
@@ -196,7 +197,7 @@ class Client
             $folder = new Folder($this, $item);
 
             if ($hierarchical && $folder->hasChildren()) {
-                $pattern = $folder->fullName.$folder->delimiter.'%';
+                $pattern = $folder->fullName . $folder->delimiter . '%';
 
                 $children = $this->getFolders(true, $pattern);
                 $folder->setChildren($children);
@@ -212,14 +213,14 @@ class Client
      *
      * @param string $folderName
      *
-     * @return Folder
+     * @return Folder|boolean
+     * @throws ConnectionFailedException
      */
     public function getFolder($folderName)
     {
         $folders = $this->getFolders(false);
 
-        foreach($folders as $folder)
-        {
+        foreach ($folders as $folder) {
             if ($folder->fullName = $folderName) {
                 return $folder;
             }
@@ -232,6 +233,7 @@ class Client
      * Open folder.
      *
      * @param Folder $folder
+     * @throws ConnectionFailedException
      */
     public function openFolder(Folder $folder)
     {
@@ -252,6 +254,7 @@ class Client
      *
      * @return array
      * @throws GetMessagesFailedException
+     * @throws ConnectionFailedException
      */
     public function getMessages(Folder $folder, $criteria = 'ALL')
     {
@@ -295,7 +298,7 @@ class Client
      */
     protected function getAddress()
     {
-        $address = "{".$this->host.":".$this->port."/imap";
+        $address = "{" . $this->host . ":" . $this->port . "/imap";
         if (!$this->validateCert) {
             $address .= '/novalidate-cert';
         }
