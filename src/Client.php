@@ -252,11 +252,12 @@ class Client
      * @param Folder $folder
      * @param string $criteria
      *
+     * @param null $lastUID
      * @return array
-     * @throws GetMessagesFailedException
      * @throws ConnectionFailedException
+     * @throws GetMessagesFailedException
      */
-    public function getMessages(Folder $folder, $criteria = 'ALL')
+    public function getMessages(Folder $folder, $criteria = 'ALL', $lastUID = null)
     {
         $this->checkConnection();
 
@@ -266,6 +267,16 @@ class Client
             $availableMessages = imap_search($this->connection, $criteria, SE_UID);
 
             if ($availableMessages !== false) {
+
+                /*
+                 * Filter last read uid
+                 */
+                if (!is_null($lastUID)) {
+                    $availableMessages = array_filter($availableMessages, function ($msgno) use ($lastUID) {
+                        return $msgno > $lastUID;
+                    });
+                }
+
                 foreach ($availableMessages as $msgno) {
                     $message = new Message($msgno, $this);
 
